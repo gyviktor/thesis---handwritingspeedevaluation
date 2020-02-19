@@ -30,16 +30,14 @@ public class Main extends Application {
 	@Override
 	public void start(Stage primaryStage) {		
 		VBox root = new VBox();
-		Scene scene;		
-		LineChart<Number, Number> linechart = WindowElements.speedFunction();		
-		GridPane gridpane = WindowElements.createGridPane();
-		ScrollPane scrollPaneOnline = WindowElements.createScrollPane();
-		ScrollPane scrollPaneOffline = WindowElements.createScrollPane();
+		Scene scene;
 		AnchorPane onlineData = new AnchorPane();
+		LineChart<Number, Number> linechart = Controller.speedFunction();
+		GridPane gridpane = new GridPane();
 		MenuBar menubar = new MenuBar();
 		Menu menu = new Menu("Menü");
-		
-		
+		ScrollPane scrollPaneOnline = new ScrollPane();
+		ScrollPane scrollPaneOffline = new ScrollPane();
 		Text text = new Text("Text");
 		ImageView offlineImage = new ImageView();
 		DoubleProperty zoomPropertyOffline = new SimpleDoubleProperty();
@@ -51,6 +49,13 @@ public class Main extends Application {
 			menu.getItems().addAll(beolvasOnline, beolvasOffline);
 			menubar.getMenus().add(menu);
 			root.getChildren().add(menubar);
+			
+			scrollPaneOnline.pannableProperty().set(true);
+			scrollPaneOffline.pannableProperty().set(true);
+			scrollPaneOnline.setFitToHeight(true);
+			scrollPaneOnline.setFitToWidth(true);
+			scrollPaneOffline.setFitToHeight(true);
+			scrollPaneOffline.setFitToWidth(true);
 
 			// zoom in and out with mouse scroll online
 			scrollPaneOnline.addEventFilter(ScrollEvent.ANY, new EventHandler<ScrollEvent>() {
@@ -76,8 +81,6 @@ public class Main extends Application {
 
 			beolvasOnline.setOnAction(e -> {
 				FileChooser filechooser = new FileChooser();
-				FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("CSV, HWR files (*.csv), (*.hwr)", "*.csv", "*.hwr");
-				filechooser.getExtensionFilters().add(extFilter);
 				File selectedFile = filechooser.showOpenDialog(primaryStage);
 				try {	
 					/*
@@ -99,7 +102,7 @@ public class Main extends Application {
 					
 				} catch (Exception e1) {
 					// TODO Auto-generated catch block
-					//e1.printStackTrace();
+					e1.printStackTrace();
 				}	
 
 			});
@@ -127,8 +130,6 @@ public class Main extends Application {
 			// open image from file offline
 			beolvasOffline.setOnAction(e -> {
 				FileChooser filechooser = new FileChooser();
-				FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("JPG, PNG, GIF files (*.jpg), (*.png), (*.gif)", "*.jpg", "*.png", "*.gif");
-				filechooser.getExtensionFilters().add(extFilter);
 				File selectedFile = filechooser.showOpenDialog(primaryStage);
 				try {
 					Image image = new Image(selectedFile.toURI().toString());
@@ -144,7 +145,12 @@ public class Main extends Application {
 			});
 			
 
-			
+			RowConstraints row = new RowConstraints();
+			row.setPercentHeight(50);
+			ColumnConstraints column = new ColumnConstraints();
+			column.setPercentWidth(50);
+			gridpane.getRowConstraints().addAll(row, row);
+			gridpane.getColumnConstraints().addAll(column, column);
 			gridpane.add(scrollPaneOnline, 0, 0);
 			gridpane.add(scrollPaneOffline, 0, 1);
 			gridpane.add(linechart, 1, 0);

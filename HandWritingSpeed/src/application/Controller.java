@@ -6,13 +6,17 @@ import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+
 import javafx.scene.Group;
 import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
 import javafx.scene.chart.XYChart.Data;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
+import javafx.scene.shape.Polyline;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.text.Text;
 
@@ -33,8 +37,7 @@ public class Controller {
 		br.close();
 
 		Group group = new Group();
-		//group.setAutoSizeChildren(false);	
-		XYChart.Series<Number, Number> series = new XYChart.Series<Number, Number>();
+		//group.setAutoSizeChildren(false);		
 		List<Double> points = new ArrayList<Double>();
 		List<Double> speeds = new ArrayList<Double>();
 		int i = 0;
@@ -47,8 +50,6 @@ public class Controller {
 		points.add(x1);
 		points.add(y1);
 		double sumSpeed = 0;
-		double tSum = 0;
-		linechart.getData().clear();
 
 		for (List<String> p : records) {
 			if (i > 1) {
@@ -58,29 +59,25 @@ public class Controller {
 				double p2 = Double.parseDouble(p.get(4));
 				double s = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
 				double t = t2 - t1;
-				tSum += t;
-				
 				double v;
 				v = t == 0 ?  0 : s / t;
 				if((p2 != p1 && (p1 == 0 || p2 == 0)) || t > 10) {
 					
 				}else {
 					Line line = vonal(x1,y1, x2, y2, p1, p2, v);
-					if(v<40 /*&& !(p1 == 0 || p2 == 0)*/) {
-						//series.getData().clear();
-						series.getData().add(speedFunctionData(tSum, v));
-						//linechart.getData().add(series);
-					}		
-					
 					group.getChildren().add(line);
 				}
-
-				if(p2 == 0 || p1 == 0) {
-					penUp++;					
-					
-				}else {
+				
+				/*
+				System.out.println("X: " + x1 + " Y: " + y1);
+				System.out.println("X: " + x2 + " Y: " + y2);
+				System.out.println("Speed: " + v);
+				*/
+				if(p2 == 0) {
 					penDown++;
 					sumSpeed+=v;
+				}else {
+					penUp++;
 				}				
 
 				
@@ -98,6 +95,7 @@ public class Controller {
 					System.out.println(averageSpeed + " = " + sumSpeed + " / " + speeds.size());
 					Polyline polyline = vonal(points, p1, p2, averageSpeed);
 					group.getChildren().add(polyline);
+					//pane.getChildren().add(polyline);
 					points.clear();					
 					speeds.clear();
 
@@ -114,13 +112,8 @@ public class Controller {
 			}
 			i++;
 		}
-		
-		linechart.getData().add(series);
 		System.out.println(i);
-		System.out.println(sumSpeed + "  " + penDown + "  " + penUp);
 		text.setText(text.getText() + "\n Átlag: " + sumSpeed/penDown);
-		
-		//linechart.getData().add(series);
 		//anchorpane.setScaleX(0.1);
 		//anchorpane.setScaleY(0.1);		
 		AnchorPane.setRightAnchor(group, 0.0);
@@ -134,14 +127,31 @@ public class Controller {
 		return;
 	}
 	
-
+	public static LineChart<Number, Number> speedFunction(){
+		final NumberAxis xAxis = new NumberAxis();
+		final NumberAxis yAxis = new NumberAxis();
+		final LineChart<Number, Number> lineChart = new LineChart<Number, Number>(xAxis, yAxis);
+		xAxis.setLabel("Idõ");
+		yAxis.setLabel("Sebesség");		
+		lineChart.setTitle("Sebességfüggvény");
+		return lineChart;		
+	}
 	
-	public static Data<Number, Number> speedFunctionData(double v, double t){
-		Data<Number, Number> data = new Data<Number, Number>(v, t);
-		return data;		
+	public static LineChart<Number, Number> speedFunctionData(LineChart<Number, Number> linechart, File selectedFile) throws Exception{
+	
+		//defining a series
+        XYChart.Series<Number, Number> series = new XYChart.Series<Number, Number>();
+        //populating the series with data
+        series.getData().add(new Data<Number, Number>(1, 23));
+
+        
+        linechart.getData().add(series);
+        
+		return linechart;
+		
 	}
 
-	/*public static Polyline vonal(List<Double> points) {
+	public static Polyline vonal(List<Double> points, double p1, double p2, double v) {
 		Polyline polyline = new Polyline();
 		double[] pointsArray = new double[points.size()];
 		for (double xy : points) {
@@ -149,9 +159,19 @@ public class Controller {
 			pointsArray[index] = xy;
 			polyline.getPoints().add(xy);			
 		}
-
+		Color[] colors = intervalColors(0, 120, 10); // red to green
+		if (p1 == 0) {
+			polyline.setStroke(Color.LIGHTGREY);
+		} else if (v < 5) {
+			polyline.setStroke(Color.GREEN);
+		} else if (5 <= v && v <= 10) {
+			polyline.setStroke(Color.YELLOW);
+		} else if (v > 10) {
+			polyline.setStroke(Color.RED);
+		}
+		polyline.setStrokeWidth(25);
 		return polyline;
-	}*/
+	}
 	
 	
 	public static Line vonal(double x1,double y1,double x2,double y2,double p1,double p2,double v) {
@@ -193,9 +213,9 @@ public class Controller {
 			  Color temp = colors[i];
 			  colors[i] = colors[colors.length -i -1];
 			  colors[colors.length -i -1] = temp;
-		}
-
-		return colors;
+			}
+	    
+	    return colors;
 	}
 
 }
