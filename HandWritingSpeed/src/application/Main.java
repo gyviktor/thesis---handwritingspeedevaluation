@@ -23,10 +23,8 @@ import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import jfxutils.chart.AxisConstraint;
 import jfxutils.chart.AxisConstraintStrategies;
-import jfxutils.chart.AxisConstraintStrategy;
 import jfxutils.chart.ChartPanManager;
 import jfxutils.chart.ChartZoomManager;
-import jfxutils.chart.JFXChartUtil;
 
 public class Main extends Application {
 	@Override
@@ -59,18 +57,25 @@ public class Main extends Application {
 
 		try {
 
-			beolvasOnline.setOnAction(e -> {
-				Controller.loadOnline(primaryStage, scrollPaneOnline, zoomPropertyOnline, onlineImage, linechart, text);
+			beolvasOnline.setOnAction(e -> {	
+				if(onlineImage.getImage() != null) {
+					offlineImage.setImage(null);
+				}
+				Controller.loadOnline(primaryStage, scrollPaneOnline, zoomPropertyOnline, onlineImage, linechart, text);			
 				if(offlineImage.getImage() != null) {
-					Controller.imageRegistration();
+					Controller.imageRegistration(onlineImage, offlineImage);
 				}
 			});
 			
 			// open image from file offline
 			beolvasOffline.setOnAction(e -> {
-				Controller.loadOffline(primaryStage, scrollPaneOffline, zoomPropertyOffline, offlineImage);
+				if(offlineImage.getImage() != null) {
+					onlineImage.setImage(null);
+				}
+				Controller.loadOffline(primaryStage, scrollPaneOffline, zoomPropertyOffline, offlineImage);			
 				if(onlineImage.getImage() != null) {
-					Controller.imageRegistration();
+					
+					Controller.imageRegistration(onlineImage, offlineImage);
 				}
 			});
 

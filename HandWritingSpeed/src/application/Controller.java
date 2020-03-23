@@ -2,15 +2,17 @@ package application;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import javax.imageio.ImageIO;
-
 import javafx.beans.property.DoubleProperty;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.Group;
@@ -29,6 +31,7 @@ import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
+
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.Core;
 import org.opencv.core.DMatch;
@@ -37,47 +40,40 @@ import org.opencv.core.Mat;
 import org.opencv.core.MatOfDMatch;
 import org.opencv.core.MatOfKeyPoint;
 import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Point;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
-import org.opencv.video.Video;
-
 import org.opencv.features2d.DescriptorMatcher;
-import org.opencv.features2d.Feature2D;
-import org.opencv.features2d.FeatureDetector;
 import org.opencv.features2d.Features2d;
 import org.opencv.features2d.ORB;
 
 public class Controller {
 
-	static String path = new String();
-
-	public static String getPath() {
-		return path;
-	}
-
-	public static void setPath(String path) {
-		Controller.path = path;
-	}
-
 	public static void loadOnline(Stage primaryStage, ScrollPane scrollPaneOnline, DoubleProperty zoomPropertyOnline,
 			ImageView onlineImage, LineChart<Number, Number> linechart, Text text) {
 		Group onlineData = new Group();
+		Group onlineDataTollLent = new Group();
 		FileChooser filechooser = new FileChooser();
 		FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("CSV, HWR files (*.csv), (*.hwr)",
 				"*.csv", "*.hwr");
 		filechooser.getExtensionFilters().add(extFilter);
+		File selectedFile = filechooser.showOpenDialog(primaryStage);
 
-		try {
-			File selectedFile = filechooser.showOpenDialog(primaryStage);
-			Controller.beolvass(selectedFile, onlineData, linechart, text);
-			saveAsPng(onlineData, "onlineSnapshot.png");			
-			Image image = new Image("file:onlineSnapshot.png");
-			onlineImage.setImage(image);
-			onlineImage.preserveRatioProperty().set(true);
-			zoomPropertyOnline.set(image.getWidth());
-			scrollPaneOnline.setContent(onlineImage);
-		} catch (Exception e1) {
-			e1.printStackTrace();
+		if (selectedFile != null) {
+			try {
+				Controller.beolvas(selectedFile, onlineData, onlineDataTollLent, linechart, text);
+				saveAsPng(onlineData, "onlineSnapshot.png");
+				saveAsPng(onlineDataTollLent, "onlineDataTollLent.png");
+				
+				Image image = new Image("file:onlineSnapshot.png");
+				
+				onlineImage.setImage(image);				
+				onlineImage.preserveRatioProperty().set(true);
+				zoomPropertyOnline.set(image.getWidth());
+				scrollPaneOnline.setContent(onlineImage);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
 		}
 
 	}
@@ -88,24 +84,32 @@ public class Controller {
 		FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter(
 				"JPG, PNG, GIF files (*.jpg), (*.png), (*.gif)", "*.jpg", "*.png", "*.gif");
 		filechooser.getExtensionFilters().add(extFilter);
-
-		try {
-			File selectedFile = filechooser.showOpenDialog(primaryStage);
-			setPath(selectedFile.getAbsolutePath());
-			Image image = new Image(selectedFile.toURI().toString());
-			offlineImage.setImage(image);
-			offlineImage.preserveRatioProperty().set(true);
-			zoomPropertyOffline.set(image.getWidth());
-			scrollPaneOffline.setContent(offlineImage);
-		} catch (Exception e1) {
-			// e1.printStackTrace();
+		File selectedFile = filechooser.showOpenDialog(primaryStage);
+		if (selectedFile != null) {
+			try {
+				Path from = Paths.get(selectedFile.toURI());
+				Path to = Paths.get("offlineKep.png");
+				Files.copy(from, to, StandardCopyOption.REPLACE_EXISTING);
+				//Image image = new Image("file:offlineKep.png", 0, 400, true, true);
+				Image image = new Image("file:offlineKep.png");
+				offlineImage.preserveRatioProperty().set(true);
+				offlineImage.setImage(image);				
+				//saveAsPng(offlineImage, "off.png");				
+				zoomPropertyOffline.set(image.getWidth());
+				scrollPaneOffline.setContent(offlineImage);
+				
+			} catch (Exception e1) {
+				e1.printStackTrace();
+			}
 		}
+
 	}
 
-	public static void imageRegistration() {
+	public static void imageRegistration(ImageView online, ImageView offline) {
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-		Mat onlinePic = Imgcodecs.imread("onlineSnapshot.png");
-		Mat offlinePic = Imgcodecs.imread(getPath());
+		Mat onlineMindenPont = Imgcodecs.imread("onlineSnapshot.png");
+		Mat onlinePic = Imgcodecs.imread("onlineDataTollLent.png");
+		Mat offlinePic = Imgcodecs.imread("offlineKep.png");
 		Mat onlineGray = new Mat();
 		Mat offlineGray = new Mat();
 		Imgproc.cvtColor(onlinePic, onlineGray, Imgproc.COLOR_RGB2GRAY);
@@ -114,92 +118,88 @@ public class Controller {
 		Mat onlineBinary = new Mat();
 		Mat offlineBinary = new Mat();
 		Imgproc.threshold(onlineGray, onlineBinary, 0, 255, Imgproc.THRESH_BINARY_INV);
-		Imgproc.threshold(offlineGray, offlineBinary, 240, 255, Imgproc.THRESH_BINARY);
+		Imgproc.threshold(offlineGray, offlineBinary, 225, 255, Imgproc.THRESH_BINARY);
 		System.out.println("Converted to Binary");
-		//Imgcodecs.imwrite("onlineBinary.png", onlineBinary);
-		//Imgcodecs.imwrite("offlineBinary.png", offlineBinary);
+		Imgcodecs.imwrite("onlineBinary.png", onlineBinary);
+		Imgcodecs.imwrite("offlineBinary.png", offlineBinary);
+		//Mat offlineBinaryBlurred = new Mat();
+		//Size size = new Size(1.0, 1.0);
+		//Imgproc.blur(offlineBinary, offlineBinaryBlurred, size);
+		//Imgproc.GaussianBlur(offlineBinary, offlineBinaryBlurred, size, 0);
 
 		// Variables to store keypoints and descriptors
-		  MatOfKeyPoint keyPointsOffline = new MatOfKeyPoint();
-		  MatOfKeyPoint keyPointsOnline = new MatOfKeyPoint();
-		  Mat descriptorsOnline = new Mat(); 
-		  Mat descriptorsOffline = new Mat();
-		  
-		  // Detect ORB features and compute descriptors.
-		  ORB orbDetector = ORB.create(100);		  
-		  orbDetector.detectAndCompute(onlineBinary, new Mat(), keyPointsOnline, descriptorsOnline); 
-		  orbDetector.detectAndCompute(offlineBinary, new Mat(), keyPointsOffline, descriptorsOffline);
-		  
+		MatOfKeyPoint keyPointsOffline = new MatOfKeyPoint();
+		MatOfKeyPoint keyPointsOnline = new MatOfKeyPoint();
+		Mat descriptorsOnline = new Mat();
+		Mat descriptorsOffline = new Mat();
+
+		// Detect ORB features and compute descriptors.
+		ORB orbDetector = ORB.create(1000);	
+		orbDetector.detectAndCompute(onlineBinary, new Mat(), keyPointsOnline, descriptorsOnline);
+		orbDetector.detectAndCompute(offlineBinary, new Mat(), keyPointsOffline, descriptorsOffline);
+		
 		// Match features.
-		  MatOfDMatch matches = new MatOfDMatch();		  
-		  DescriptorMatcher matcher =  DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING);
-		  matcher.match(descriptorsOnline, descriptorsOffline, matches);
-
+		MatOfDMatch matches = new MatOfDMatch();
+		DescriptorMatcher matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMINGLUT);
+		matcher.match(descriptorsOnline, descriptorsOffline, matches, new Mat());
+		System.out.println("Matches: " + matches.rows());
+		
 		// Sort matches by score
-		  System.out.println(matches.cols() + "  rows: " + matches.rows());
-		 DMatch[] matchesArray = matches.toArray();
-		 MatOfDMatch topMatches = new MatOfDMatch();
-		 
-		 boolean sorted = false;
-		    DMatch temp;
-		    while(!sorted) {
-		        sorted = true;
-		        for (int i = 0; i < matchesArray.length - 1; i++) {
-		            if (matchesArray[i].distance > matchesArray[i+1].distance) {
-		                temp = matchesArray[i];
-		                matchesArray[i] = matchesArray[i+1];
-		                matchesArray[i+1] = temp;
-		                sorted = false;
-		            }
-		        }
-		    }
-		    
-		    
-		    //topMatches.fromArray(matchesArray);
-		 //System.out.println(topMatches.cols() + "  rows: " + topMatches.rows());
-		  // Remove not so good matces 
-		 //int numGoodMatches = (int) (matchesArray.length * 0.15); 
+		DMatch[] matchesArray = matches.toArray();		
+		boolean sorted = false;
+		DMatch temp;
+		while (!sorted) {
+			sorted = true;
+			for (int i = 0; i < matchesArray.length - 1; i++) {
+				if (matchesArray[i].distance > matchesArray[i + 1].distance) {
+					temp = matchesArray[i];
+					matchesArray[i] = matchesArray[i + 1];
+					matchesArray[i + 1] = temp;
+					sorted = false;
+				}
+			}
+		}
+		// Remove not so good matces
 
-		 		 
+		int top = (int) (matchesArray.length * 0.2);
+		DMatch[] matchesArrayTop = new DMatch[top];		
+		for (int i=0; i< top; i++) {
+			matchesArrayTop[i] = matchesArray[i];
+			System.out.println("Index: " + i + ", " + matchesArrayTop[i]);
+		}
+		
+		MatOfDMatch topMatches = new MatOfDMatch();
+	    topMatches.fromArray(matchesArrayTop);
 		// Draw top matches
-		  Mat imMatches = new Mat(); 
-		  Features2d.drawMatches(onlinePic, keyPointsOnline, offlinePic, keyPointsOffline, matches, imMatches);
-		  Imgcodecs.imwrite("matches.png", imMatches);
-		  
-		  //System.out.println(matches.width() + " height:  " + matches.height()); 
-		  
-		  // Extract location of good matches
-		  MatOfPoint2f points1 = new MatOfPoint2f(); 
-		  MatOfPoint2f points2 = new MatOfPoint2f();
-		  
-		  for (int i = 0; i<topMatches.height(); i++) {
-			  points1.push_back(keyPointsOnline.row(matchesArray[i].queryIdx));
-			  points2.push_back(keyPointsOffline.row(matchesArray[i].trainIdx));
-		  }
+		Mat imMatches = new Mat();
+		Features2d.drawMatches(onlineMindenPont, keyPointsOnline, offlineBinary, keyPointsOffline,  topMatches, imMatches);
+		Imgcodecs.imwrite("matches.png", imMatches);
 
-		 Mat imReg = new Mat();
+		// Extract location of good matches
+		MatOfPoint2f points1 = new MatOfPoint2f();
+		MatOfPoint2f points2 = new MatOfPoint2f();
+		List<Point> obj = new ArrayList<>();
+	    List<Point> scene = new ArrayList<>();
+		
+		 KeyPoint[] keyPointsOfflineArray = keyPointsOffline.toArray();
+		 KeyPoint[] keyPointsOnlineArray = keyPointsOnline.toArray();
+		 
+		for (int i = 0; i < topMatches.height(); i++) {			
+			obj.add(keyPointsOnlineArray[matchesArrayTop[i].queryIdx].pt);
+			scene.add(keyPointsOfflineArray[matchesArrayTop[i].trainIdx].pt);
+		}
+		points1.fromList(obj);
+		points2.fromList(scene);
+		Mat imReg = new Mat();
 		// Find homography
-		 //Mat h = Calib3d.findHomography(points1, points2, Calib3d.RANSAC);
+		 Mat h = Calib3d.findHomography(points1, points2, Calib3d.RANSAC);
+		 System.out.println("Estimated homography : \n" + h);
 		// Use homography to warp image
-		 //Imgproc.warpPerspective(onlinePic, imReg, h, onlinePic.size());
-		 //Imgcodecs.imwrite("illesztett.png", imReg);
-		 //System.out.println("Estimated homography : \n" + h);
+		 Imgproc.warpPerspective(onlineMindenPont, imReg, h, offlinePic.size());
+		 Imgcodecs.imwrite("illesztett.png", imReg);
 		 
-		 
-		 /*
-			final int warpMode = Video.MOTION_HOMOGRAPHY;
-			Mat warpMatrix = Mat.eye(3, 3, CvType.CV_32F);
-			int numbeOfIterations = 500;
-			double terminationEps = 1e-5;
-			TermCriteria criteria = new TermCriteria(TermCriteria.COUNT + TermCriteria.EPS, numbeOfIterations,
-					terminationEps);
-			Video.findTransformECC(onlineBinary, offlineBinary, warpMatrix, warpMode, criteria, new Mat(), 5);
-			Mat allignedImage = new Mat();
-			Imgproc.warpPerspective(offlinePic, allignedImage, warpMatrix, offlinePic.size(),
-					Imgproc.INTER_LINEAR + Imgproc.CV_WARP_INVERSE_MAP);
-			Imgcodecs.imwrite("alligned.png", allignedImage);
-	*/
 	}
+	
 
 	public static List<List<String>> setRecords(File selectedFile) throws Exception {
 		List<List<String>> records = new ArrayList<>();
@@ -213,13 +213,12 @@ public class Controller {
 		return records;
 	}
 
-	public static void beolvass(File selectedFile, Group onlineData, LineChart<Number, Number> linechart, Text text)
+	public static void beolvas(File selectedFile, Group onlineData, Group onlineDataTollLent, LineChart<Number, Number> linechart, Text text)
 			throws Exception {
 		Szoveg szoveg = new Szoveg();
 		Line line = new Line();
 		Pont pont = new Pont();
-		int vonalDb = 0;
-		Group onlineDataTollLent = new Group();
+		
 		onlineData.getChildren().clear();
 		linechart.getData().clear();
 
@@ -248,70 +247,66 @@ public class Controller {
 				szoveg.addVonal(vonal);
 				System.out.println(vonal.getVonalGyorsulas());
 				vonal = new Vonal(pont);
-				vonalDb++;
 			} else {
+
+				line = vonalRajz(vonal);				
+				onlineData.getChildren().add(line);				
+				Line line2 = vonalRajzKek(vonal);
+				onlineDataTollLent.getChildren().add(line2);
 				
-				line = vonalRajz(vonal);
-				if(vonal.isTollFent() == false) {
-					onlineDataTollLent.getChildren().add(line);
-						
-				}
-				onlineData.getChildren().add(line);
 				vonal.addPont(pont);
 			}
 //			System.out.println(vonal.getSzakaszIdo());
 //			System.out.println(vonal.getSzakaszSebesseg());
-			
-			
 
 		}
-		saveAsPng(onlineDataTollLent, "onlineDataTollLent.png");
-		sebessegGorbe(linechart, szoveg);
+		
+		//sebessegGorbe(linechart, szoveg);
 		gyorsulasGorbe(linechart, szoveg);
-//		System.out.println("Vonalak száma: " + vonalDb);
 		System.out.println("Golbális átlagsebesség: " + szoveg.getGlobalisSebesseg());
 		onlineData.setScaleX(0.05);
 		onlineData.setScaleY(0.05);
-
+		onlineDataTollLent.setScaleX(0.05);
+		onlineDataTollLent.setScaleY(0.05);
 		return;
 	}
-	
 
 	public static void sebessegGorbe(LineChart<Number, Number> linechart, Szoveg szoveg) {
 		for (int i = 0; i < szoveg.getVonalak().size(); i++) {
-			Series <Number, Number> sorozat = new Series<Number, Number>();
+			Series<Number, Number> sorozat = new Series<Number, Number>();
 			sorozat.setName("Sebesség");
 			sorozat = szoveg.getVonalak().get(i).getSebessegSeries();
 			linechart.getData().add(sorozat);
 			Node vonalNode = sorozat.getNode().lookup(".chart-series-line");
-			
-			if(szoveg.getVonalak().get(i).isTollFent() == true) {
+
+			if (szoveg.getVonalak().get(i).isTollFent() == true) {
 				vonalNode.setStyle("-fx-stroke: #AAAAAA;");
-				
-			}else {
+
+			} else {
 				Color[] colors = intervalColors(0, 120, 60); // green to red
 				int tempo = (int) Math.floor(szoveg.getVonalak().get(i).getVonalSebesseg() * 5);
 				if (tempo >= colors.length) {
 					tempo = colors.length - 1;
 				}
-				String szinKod = colors[tempo].toString().substring(colors[tempo].toString().length()-8, colors[tempo].toString().length()-2);
+				String szinKod = colors[tempo].toString().substring(colors[tempo].toString().length() - 8,
+						colors[tempo].toString().length() - 2);
 				vonalNode.setStyle("-fx-stroke: #" + szinKod + ";");
 			}
-			
+
 		}
 
 	}
-	
+
 	public static void gyorsulasGorbe(LineChart<Number, Number> linechart, Szoveg szoveg) {
 		for (int i = 0; i < szoveg.getVonalak().size(); i++) {
-			Series <Number, Number> sorozat = new Series<Number, Number>();
+			Series<Number, Number> sorozat = new Series<Number, Number>();
 			sorozat = szoveg.getVonalak().get(i).getGyorsulasSeries();
 			linechart.getData().add(sorozat);
 			Node vonalNode = sorozat.getNode().lookup(".chart-series-line");
-			
-			if(szoveg.getVonalak().get(i).isTollFent() == true) {
+
+			if (szoveg.getVonalak().get(i).isTollFent() == true) {
 				vonalNode.setStyle("-fx-stroke: #AAAAAA;");
-			}else {
+			} else {
 				vonalNode.setStyle("-fx-stroke: #0000FF;");
 //				Color[] colors = intervalColors(0, 120, 60); // green to red
 //				System.out.println(szoveg.getVonalak().get(i).getVonalSebesseg());
@@ -322,7 +317,7 @@ public class Controller {
 //				String szinKod = colors[tempo].toString().substring(colors[tempo].toString().length()-8, colors[tempo].toString().length()-2);
 //				vonalNode.setStyle("-fx-stroke: #" + szinKod + ";");
 			}
-			
+
 		}
 
 	}
@@ -331,7 +326,7 @@ public class Controller {
 		Line line = new Line();
 
 		if (vonal.isTollFent() == true) {
-			line.setStroke(Color.TRANSPARENT);
+			line.setStroke(Color.LIGHTGRAY);
 			line.setStrokeWidth(10);
 		} else {
 			Color[] colors = intervalColors(0, 120, 60); // green to red
@@ -342,6 +337,32 @@ public class Controller {
 			}
 			line.setStroke(colors[tempo]);
 			line.setStrokeWidth(45);
+		}
+
+		line.setStrokeLineCap(StrokeLineCap.ROUND);
+		line.setStartX(vonal.getSzakaszPont1().getX());
+		line.setStartY(vonal.getSzakaszPont1().getY());
+		line.setEndX(vonal.getSzakaszPont2().getX());
+		line.setEndY(vonal.getSzakaszPont2().getY());
+		return line;
+
+	}
+	
+	public static Line vonalRajzKek(Vonal vonal) {
+		Line line = new Line();
+
+		if (vonal.isTollFent() == true) {
+			line.setStroke(Color.TRANSPARENT);
+			line.setStrokeWidth(5);
+		} else {			
+			Color[] colors = intervalColors(0, 120, 60); // green to red
+
+			int tempo = (int) Math.floor(vonal.getSzakaszSebesseg() * 5);
+			if (tempo >= colors.length) {
+				tempo = colors.length - 1;
+			}
+			line.setStroke(colors[tempo]);
+			line.setStrokeWidth(47);
 		}
 
 		line.setStrokeLineCap(StrokeLineCap.ROUND);
@@ -371,8 +392,8 @@ public class Controller {
 
 		return colors;
 	}
-	
-	public static final void saveAsPng(final Node NODE, String fileNev) {
+
+	public static final void saveAsPng(Node NODE, String fileNev) {
 		SnapshotParameters sp = new SnapshotParameters();
 		sp.setFill(Color.TRANSPARENT);
 		WritableImage SNAPSHOT = NODE.snapshot(sp, null);
