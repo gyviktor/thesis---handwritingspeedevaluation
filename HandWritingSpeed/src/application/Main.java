@@ -133,7 +133,6 @@ public class Main extends Application {
 		    });
 		    panner.start();
 
-		    //holding the right mouse button will draw a rectangle to zoom to desired location
 		    ChartZoomManager zoomer = new ChartZoomManager(stackPaneChart, rectangle, linechart);
 		    zoomer.setMouseFilter(mouseEvent -> {mouseEvent.consume();});
 		    zoomer.setMouseWheelZoomAllowed(true);		    

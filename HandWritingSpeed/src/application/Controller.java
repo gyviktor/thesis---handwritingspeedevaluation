@@ -41,6 +41,7 @@ import org.opencv.core.MatOfDMatch;
 import org.opencv.core.MatOfKeyPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
+import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.features2d.DescriptorMatcher;
@@ -65,7 +66,7 @@ public class Controller {
 				saveAsPng(onlineData, "onlineSnapshot.png");
 				saveAsPng(onlineDataTollLent, "onlineDataTollLent.png");
 				
-				Image image = new Image("file:onlineSnapshot.png");
+				Image image = new Image("file:onlineDataTollLent.png");
 				
 				onlineImage.setImage(image);				
 				onlineImage.preserveRatioProperty().set(true);
@@ -117,16 +118,18 @@ public class Controller {
 		System.out.println("Converted to Grayscale");
 		Mat onlineBinary = new Mat();
 		Mat offlineBinary = new Mat();
-		Imgproc.threshold(onlineGray, onlineBinary, 0, 255, Imgproc.THRESH_BINARY_INV);
-		Imgproc.threshold(offlineGray, offlineBinary, 225, 255, Imgproc.THRESH_BINARY);
+		Imgproc.threshold(onlineGray, onlineBinary, 0, 255, Imgproc.THRESH_BINARY);
+		Imgproc.threshold(offlineGray, offlineBinary, 240, 255, Imgproc.THRESH_BINARY_INV);
 		System.out.println("Converted to Binary");
 		Imgcodecs.imwrite("onlineBinary.png", onlineBinary);
 		Imgcodecs.imwrite("offlineBinary.png", offlineBinary);
-		//Mat offlineBinaryBlurred = new Mat();
-		//Size size = new Size(1.0, 1.0);
-		//Imgproc.blur(offlineBinary, offlineBinaryBlurred, size);
-		//Imgproc.GaussianBlur(offlineBinary, offlineBinaryBlurred, size, 0);
-
+		Mat offlineBinaryOpen = new Mat();
+		Size size = new Size(3.0, 3.0);
+		Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, size);
+		Imgproc.morphologyEx(offlineBinary, offlineBinaryOpen, Imgproc.MORPH_OPEN, kernel);
+		Imgcodecs.imwrite("offlineBinaryOpen.png", offlineBinaryOpen);
+		
+		
 		// Variables to store keypoints and descriptors
 		MatOfKeyPoint keyPointsOffline = new MatOfKeyPoint();
 		MatOfKeyPoint keyPointsOnline = new MatOfKeyPoint();
@@ -134,14 +137,14 @@ public class Controller {
 		Mat descriptorsOffline = new Mat();
 
 		// Detect ORB features and compute descriptors.
-		ORB orbDetector = ORB.create(1000);	
+		ORB orbDetector = ORB.create(1500);	
 		orbDetector.detectAndCompute(onlineBinary, new Mat(), keyPointsOnline, descriptorsOnline);
-		orbDetector.detectAndCompute(offlineBinary, new Mat(), keyPointsOffline, descriptorsOffline);
+		orbDetector.detectAndCompute(offlineBinaryOpen, new Mat(), keyPointsOffline, descriptorsOffline);
 		
 		// Match features.
 		MatOfDMatch matches = new MatOfDMatch();
-		DescriptorMatcher matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMINGLUT);
-		matcher.match(descriptorsOnline, descriptorsOffline, matches, new Mat());
+		DescriptorMatcher matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING);
+		matcher.match(descriptorsOffline, descriptorsOnline,  matches, new Mat());
 		System.out.println("Matches: " + matches.rows());
 		
 		// Sort matches by score
@@ -161,23 +164,24 @@ public class Controller {
 		}
 		// Remove not so good matces
 
-		int top = (int) (matchesArray.length * 0.2);
-		DMatch[] matchesArrayTop = new DMatch[top];		
+		int top = (int) (matchesArray.length * 0.1);
+		DMatch[] topMatchesArray = new DMatch[top];		
 		for (int i=0; i< top; i++) {
-			matchesArrayTop[i] = matchesArray[i];
-			System.out.println("Index: " + i + ", " + matchesArrayTop[i]);
+			topMatchesArray[i] = matchesArray[i];
+			System.out.println("Index: " + i + ", " + topMatchesArray[i]);
 		}
 		
 		MatOfDMatch topMatches = new MatOfDMatch();
-	    topMatches.fromArray(matchesArrayTop);
+	    topMatches.fromArray(topMatchesArray);
 		// Draw top matches
 		Mat imMatches = new Mat();
-		Features2d.drawMatches(onlineMindenPont, keyPointsOnline, offlineBinary, keyPointsOffline,  topMatches, imMatches);
+		Features2d.drawMatches(offlineBinaryOpen, keyPointsOffline, onlineBinary, keyPointsOnline, topMatches, imMatches);
 		Imgcodecs.imwrite("matches.png", imMatches);
 
 		// Extract location of good matches
 		MatOfPoint2f points1 = new MatOfPoint2f();
 		MatOfPoint2f points2 = new MatOfPoint2f();
+		
 		List<Point> obj = new ArrayList<>();
 	    List<Point> scene = new ArrayList<>();
 		
@@ -185,18 +189,21 @@ public class Controller {
 		 KeyPoint[] keyPointsOnlineArray = keyPointsOnline.toArray();
 		 
 		for (int i = 0; i < topMatches.height(); i++) {			
-			obj.add(keyPointsOnlineArray[matchesArrayTop[i].queryIdx].pt);
-			scene.add(keyPointsOfflineArray[matchesArrayTop[i].trainIdx].pt);
+			obj.add(keyPointsOfflineArray[topMatchesArray[i].queryIdx].pt);
+			scene.add(keyPointsOnlineArray[topMatchesArray[i].trainIdx].pt);
 		}
+
 		points1.fromList(obj);
 		points2.fromList(scene);
 		Mat imReg = new Mat();
 		// Find homography
 		 Mat h = Calib3d.findHomography(points1, points2, Calib3d.RANSAC);
+
 		 System.out.println("Estimated homography : \n" + h);
 		// Use homography to warp image
-		 Imgproc.warpPerspective(onlineMindenPont, imReg, h, offlinePic.size());
+		 Imgproc.warpPerspective(offlinePic, imReg, h, onlinePic.size());
 		 Imgcodecs.imwrite("illesztett.png", imReg);
+		 
 		 
 	}
 	
@@ -264,10 +271,10 @@ public class Controller {
 		//sebessegGorbe(linechart, szoveg);
 		gyorsulasGorbe(linechart, szoveg);
 		System.out.println("Golbális átlagsebesség: " + szoveg.getGlobalisSebesseg());
-		onlineData.setScaleX(0.05);
-		onlineData.setScaleY(0.05);
-		onlineDataTollLent.setScaleX(0.05);
-		onlineDataTollLent.setScaleY(0.05);
+		onlineData.setScaleX(0.1);
+		onlineData.setScaleY(0.1);
+		onlineDataTollLent.setScaleX(0.06);
+		onlineDataTollLent.setScaleY(0.06);
 		return;
 	}
 
@@ -327,7 +334,7 @@ public class Controller {
 
 		if (vonal.isTollFent() == true) {
 			line.setStroke(Color.LIGHTGRAY);
-			line.setStrokeWidth(10);
+			line.setStrokeWidth(15);
 		} else {
 			Color[] colors = intervalColors(0, 120, 60); // green to red
 
@@ -337,6 +344,7 @@ public class Controller {
 			}
 			line.setStroke(colors[tempo]);
 			line.setStrokeWidth(45);
+//			line.setStroke(Color.BLUE);
 		}
 
 		line.setStrokeLineCap(StrokeLineCap.ROUND);
@@ -362,7 +370,7 @@ public class Controller {
 				tempo = colors.length - 1;
 			}
 			line.setStroke(colors[tempo]);
-			line.setStrokeWidth(47);
+			line.setStrokeWidth(55);
 		}
 
 		line.setStrokeLineCap(StrokeLineCap.ROUND);

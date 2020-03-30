@@ -12,7 +12,7 @@ public class Main {
 
 	public static void main(String[] args) throws IOException {
 		List<List<String>> records = beolvas(
-				"C:/Users/Viktor/Documents/GitHub/thesis---handwritingspeedevaluation/Wacom_speed/ID0001-0883_20191126102804/capture_01_20191126102804_x.csv");
+				"C:/Users/Viktor/Documents/GitHub/thesis---handwritingspeedevaluation/Wacom_speed/ID0003-0885_20191126152620/capture_01_20191126152620_x.csv");
 		kiir(records);
 		System.out.println("Done !");
 	}
@@ -212,7 +212,7 @@ public class Main {
 			writer24.close();
 			break;
 		case 25:
-			FileWriter writer25 = new FileWriter("szamok-gyors_tempoval-1.csv.csv");
+			FileWriter writer25 = new FileWriter("szamok-gyors_tempoval-1.csv");
 			writer25.append(sb);
 			writer25.close();
 			break;

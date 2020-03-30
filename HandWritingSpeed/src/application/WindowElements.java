@@ -40,8 +40,8 @@ public class WindowElements {
 		linechart.setCreateSymbols(false);
 		linechart.setLegendVisible(false);
 		xAxis.setLabel("Idõ");
-		yAxis.setLabel("Sebesség");
-		linechart.setTitle("Sebességfüggvény");
+		yAxis.setLabel("Gyorsulás");
+		linechart.setTitle("Gyorsulásfüggvény");
 		return linechart;
 	}
 
