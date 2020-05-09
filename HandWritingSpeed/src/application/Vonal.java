@@ -11,11 +11,11 @@ public class Vonal {
 	public static int osszIdo;
 	private int pontokSzama;
 	private int szakaszIdo, vonalIdo;
-	private double szakaszHossz, szakaszSebesseg, szakaszSebessegElozo, sebessegValtozas;
+	private double szakaszHossz, szakaszSebesseg, szakaszSebessegElozo, sebessegValtozas, szakaszNyomas;
 	private double gyorsulas;
 
-
-	private double vonalHossz, vonalSebesseg, vonalGyorsulas;
+	private double vonalHossz, vonalSebesseg, vonalSebessegH, vonalSebessegV, vonalGyorsulas, vonalGyorsulasH,
+			vonalGyorsulasV, vonalNyomas;
 	private boolean tollFent;
 	// private double xSebesseg, ySebesseg;
 
@@ -45,15 +45,15 @@ public class Vonal {
 	public void addPont(Pont pont) {
 		Pont ujPont = new Pont(pont.getX(), pont.getY(), pont.getP(), pont.getT());
 		this.getPontok().add(ujPont);
-		this.setPontokSzama();		
-		
+		this.setPontokSzama();
 
 		if (this.getPontokSzama() > 1) {
-			//System.out.println("Pontok szama: " + this.getPontokSzama());
+			// System.out.println("Pontok szama: " + this.getPontokSzama());
 			this.setSzakaszPont1(this.getPont(this.getPontokSzama() - 2));
 			this.setSzakaszPont2(this.getPont(this.getPontokSzama() - 1));
 			this.setSzakaszHossz(this.getSzakaszPont1(), this.getSzakaszPont2());
 			this.setSzakaszIdo(this.getSzakaszPont1(), this.getSzakaszPont2());
+			this.setSzakaszNyomas(this.getSzakaszPont1(), this.getSzakaszPont2());
 //			if(this.getSzakaszIdo() < 5) {
 //				//ne csináljon semmit
 //			}else {
@@ -63,11 +63,11 @@ public class Vonal {
 			this.setVonalHossz();
 			this.setVonalIdo();
 			this.setVonalSebessegAtlag();
+			this.setGyorsulasSeries();
 			this.setSebessegSeries();
-			//this.setGyorsulasSeries();
-			
+
 //			}
-			
+
 		}
 	}
 
@@ -133,9 +133,9 @@ public class Vonal {
 		} else {
 			this.szakaszIdo = Math.abs(pont2.getT() - pont1.getT());
 		}
-		
+
 //		this.szakaszIdo = Math.abs(pont2.getT() - pont1.getT());
-		
+
 	}
 
 	public double getSzakaszHossz() {
@@ -158,7 +158,7 @@ public class Vonal {
 			this.szakaszSebesseg = this.getSzakaszHossz() / this.getSzakaszIdo();
 		}
 	}
-	
+
 	public double getSzakaszSebessegElozo() {
 		return szakaszSebessegElozo;
 	}
@@ -166,7 +166,7 @@ public class Vonal {
 	public void setSzakaszSebessegElozo() {
 		this.szakaszSebessegElozo = this.getSzakaszSebesseg();
 	}
-	
+
 	public double getSebessegValtozas() {
 		return sebessegValtozas;
 	}
@@ -200,12 +200,14 @@ public class Vonal {
 		this.vonalSebesseg = this.getVonalHossz() / this.getVonalIdo();
 	}
 
-	public double getVonalGyorsulas() {	
+	public double getVonalGyorsulas() {
 		return vonalGyorsulas;
 	}
 
 	public void setVonalGyorsulas() {
-		this.vonalGyorsulas += this.getGyorsulas();
+		if (this.getGyorsulas() <= 1 && this.getGyorsulas() >= -1) {
+			this.vonalGyorsulas += this.getGyorsulas();
+		}
 	}
 
 	public XYChart.Series<Number, Number> getSebessegSeries() {
@@ -213,27 +215,19 @@ public class Vonal {
 	}
 
 	public void setSebessegSeries() {
-		//System.out.println("Sebesseg: " + this.getSzakaszSebesseg());
-		
-//		if (this.getSzakaszSebesseg() < 19) {
-//			this.sebessegSeries.getData().add(new Data<Number, Number>(osszIdo, this.getSzakaszSebesseg()));
-//		}
-		 this.sebessegSeries.getData().add(new Data<Number, Number>(osszIdo, this.getSzakaszSebesseg()));
-		 this.setGyorsulasSeries();
-		 if(this.getGyorsulas() >= 1 || this.getGyorsulas() <= -1) {
-			 this.getSebessegSeries().getData().remove(this.getSebessegSeries().getData().size()-1);
-		 }
-		 
+		if (this.getGyorsulas() <= 1 && this.getGyorsulas() >= -1) {
+			this.getSebessegSeries().getData().add(new Data<Number, Number>(osszIdo, this.getSzakaszSebesseg()));
+		}
 	}
-	
+
 	public XYChart.Series<Number, Number> getGyorsulasSeries() {
 		return gyorsulasSeries;
 	}
 
 	public void setGyorsulasSeries() {
 		this.setGyorsulas(this.getSebessegValtozas() / this.getSzakaszIdo());
-		//System.out.println("Gyorsulas: " + gyorsulas);
-		if(this.getGyorsulas() <= 1 && this.getGyorsulas() >= -1) {
+		// System.out.println("Gyorsulas: " + gyorsulas);
+		if (this.getGyorsulas() <= 1 && this.getGyorsulas() >= -1) {
 			this.gyorsulasSeries.getData().add(new Data<Number, Number>(osszIdo, this.getGyorsulas()));
 			this.setVonalGyorsulas();
 		}
@@ -245,6 +239,54 @@ public class Vonal {
 
 	public void setGyorsulas(double gyorsulas) {
 		this.gyorsulas = gyorsulas;
+	}
+
+	public double getSzakaszNyomas() {
+		return szakaszNyomas;
+	}
+
+	public void setSzakaszNyomas(Pont pont1, Pont pont2) {
+		this.szakaszNyomas = (pont1.getP() + pont2.getP()) / 2;
+	}
+
+	public double getVonalSebessegH() {
+		return vonalSebessegH;
+	}
+
+	public void setVonalSebessegH(double vonalSebessegH) {
+		this.vonalSebessegH = vonalSebessegH;
+	}
+
+	public double getVonalSebessegV() {
+		return vonalSebessegV;
+	}
+
+	public void setVonalSebessegV(double vonalSebessegV) {
+		this.vonalSebessegV = vonalSebessegV;
+	}
+
+	public double getVonalGyorsulasH() {
+		return vonalGyorsulasH;
+	}
+
+	public void setVonalGyorsulasH(double vonalGyorsulasH) {
+		this.vonalGyorsulasH = vonalGyorsulasH;
+	}
+
+	public double getVonalGyorsulasV() {
+		return vonalGyorsulasV;
+	}
+
+	public void setVonalGyorsulasV(double vonalGyorsulasV) {
+		this.vonalGyorsulasV = vonalGyorsulasV;
+	}
+
+	public double getVonalNyomas() {
+		return vonalNyomas;
+	}
+
+	public void setVonalNyomas(double vonalNyomas) {
+		this.vonalNyomas = vonalNyomas;
 	}
 
 }

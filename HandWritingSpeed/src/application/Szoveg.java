@@ -4,13 +4,16 @@ import java.util.ArrayList;
 
 public class Szoveg {
 	private int pontokSzama;
-	private double globalisSebesseg, globalisGyorsulas, szoras;
+	private double globalisSebesseg, globalisGyorsulas, globalisNyomas, szoras;
 	private ArrayList<Vonal> vonalak = new ArrayList<Vonal>();
+		
 	
 	public void addVonal(Vonal vonal) {
 		this.vonalak.add(vonal);
 		this.setPontokSzama(vonal);
 		this.setGlobalisSebesseg(vonal.getVonalSebesseg());
+		this.setGlobalisGyorsulas(vonal.getVonalGyorsulas());
+		//this.setGlobalisNyomas();
 		
 	}
 	
@@ -18,17 +21,17 @@ public class Szoveg {
 		return vonalak;
 	}
 
-	public double getGlobalisSebesseg() {		
-		return this.globalisSebesseg/this.getVonalak().size();
+	public String getGlobalisSebesseg() {		
+		return String.valueOf(this.globalisSebesseg/this.getVonalak().size());
 	}
 	public void setGlobalisSebesseg(double vonalSebesseg) {
 		this.globalisSebesseg += vonalSebesseg;
 	}
-	public double getGlobalisGyorsulas() {
-		return globalisGyorsulas;
+	public String getGlobalisGyorsulas() {
+		return String.valueOf(globalisGyorsulas);
 	}
-	public void setGlobalisGyorsulas(double globalisGyorsulas) {
-		this.globalisGyorsulas = globalisGyorsulas;
+	public void setGlobalisGyorsulas(double vonalGyorsulas) {
+		this.globalisGyorsulas += vonalGyorsulas;
 	}
 	public double getSzoras() {
 		return szoras;
@@ -41,6 +44,14 @@ public class Szoveg {
 	}
 	public void setPontokSzama(Vonal vonal) {
 		this.pontokSzama += vonal.getPontokSzama();
+	}
+
+	public double getGlobalisNyomas() {
+		return globalisNyomas;
+	}
+
+	public void setGlobalisNyomas(double globalisNyomas) {
+		this.globalisNyomas = globalisNyomas;
 	}
 	
 }
