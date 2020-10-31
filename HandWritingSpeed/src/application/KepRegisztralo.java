@@ -25,125 +25,210 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.text.Text;
 
 public final class KepRegisztralo {
+	private StackPane stackpane;
+	private ImageView offlineIllesztettKep;
+	private ImageView onlineIllesztettKep;
 
-	public static void regisztracio(StackPane stackpane, ImageView bottom, ImageView topp, double features,
-			double topMatch) {
-		stackpane.getChildren().clear();
+	public KepRegisztralo() {
+		stackpane = new StackPane();
+		offlineIllesztettKep = new ImageView();
+		onlineIllesztettKep = new ImageView();
+	}
+
+	public void regisztracio() {
+		this.getStackpane().getChildren().clear();
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 		// Mat onlineMindenPont = Imgcodecs.imread("onlineSnapshot.png");
 		Mat onlinePic = Imgcodecs.imread("onlineDataTollLent.png");
 		Mat offlinePic = Imgcodecs.imread("offlineKep.png");
+
+		Mat offlineBinary = binarisKonverzioOffline(offlinePic);
+		Mat onlineBinary = binarisKonverzioOnline(onlinePic);
+
+		Mat offlineBinaryMorph = Morfologia(offlineBinary);
+		Mat kernel = Mat.ones(new Size(1.0, 1.0), Imgproc.MORPH_RECT);
+
+		Mat onlineBinaryMorph = new Mat();
+		Imgproc.erode(onlineBinary, onlineBinaryMorph, kernel);
+		Imgcodecs.imwrite("onlineBinaryMorph.png", onlineBinaryMorph);
+
+		int max = 0;
+		Image imageOff = null;
+		Image imageOn = null;
+
+		Mat imRegBin = new Mat();
+		Mat imReg = new Mat();
+		// for (int features = 1500; features >= 50; features -= 50) {
+		for (double topMatch = 1; topMatch <= 25; topMatch += 0.5) {
+			// Variables to store keypoints and descriptors
+			MatOfKeyPoint keyPointsOffline = new MatOfKeyPoint();
+			MatOfKeyPoint keyPointsOnline = new MatOfKeyPoint();
+			Mat descriptorsOnline = new Mat();
+			Mat descriptorsOffline = new Mat();
+
+			// Detect ORB features and compute descriptors.
+			ORB orbDetector = ORB.create();
+
+			orbDetector.detectAndCompute(onlineBinaryMorph, new Mat(), keyPointsOnline, descriptorsOnline);
+			orbDetector.detectAndCompute(offlineBinaryMorph, new Mat(), keyPointsOffline, descriptorsOffline);
+
+			// Match features.
+			try {
+				MatOfDMatch matches = new MatOfDMatch();
+				DescriptorMatcher matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING);
+
+				matcher.match(descriptorsOffline, descriptorsOnline, matches, new Mat());
+
+				// Sort matches by score
+				DMatch[] matchesArray = matches.toArray();
+				boolean sorted = false;
+				DMatch temp = new DMatch();
+				while (!sorted) {
+					sorted = true;
+					for (int i = 0; i < matchesArray.length - 1; i++) {
+						if (matchesArray[i].distance > matchesArray[i + 1].distance) {
+							temp = matchesArray[i];
+							matchesArray[i] = matchesArray[i + 1];
+							matchesArray[i + 1] = temp;
+							sorted = false;
+						}
+					}
+				}
+				// Remove not so good matces
+
+				int top = (int) (matchesArray.length * (topMatch / 100));
+				DMatch[] topMatchesArray = new DMatch[top];
+				for (int i = 0; i < top; i++) {
+					topMatchesArray[i] = matchesArray[i];
+					// System.out.println("Index: " + i + ", " + topMatchesArray[i]);
+				}
+				MatOfDMatch topMatches = new MatOfDMatch();
+				topMatches.fromArray(topMatchesArray);
+
+				// Draw top matches
+				Mat imMatches = new Mat();
+				Features2d.drawMatches(offlineBinaryMorph, keyPointsOffline, onlineBinaryMorph, keyPointsOnline,
+						topMatches, imMatches);
+				Imgcodecs.imwrite("matches.png", imMatches);
+
+				// Extract location of good matches
+				MatOfPoint2f points1 = new MatOfPoint2f();
+				MatOfPoint2f points2 = new MatOfPoint2f();
+				List<Point> obj = new ArrayList<>();
+				List<Point> scene = new ArrayList<>();
+				KeyPoint[] keyPointsOfflineArray = keyPointsOffline.toArray();
+				KeyPoint[] keyPointsOnlineArray = keyPointsOnline.toArray();
+				for (int i = 0; i < topMatches.height(); i++) {
+					obj.add(keyPointsOfflineArray[topMatchesArray[i].queryIdx].pt);
+					scene.add(keyPointsOnlineArray[topMatchesArray[i].trainIdx].pt);
+				}
+				points1.fromList(obj);
+				points2.fromList(scene);
+
+				// Find homography
+				Mat homography = new Mat();
+				homography = Calib3d.findHomography(points1, points2, Calib3d.RANSAC);
+
+				// Use homography to warp image
+
+				Imgproc.warpPerspective(offlineBinaryMorph, imRegBin, homography, onlinePic.size());
+
+				Imgproc.warpPerspective(offlinePic, imReg, homography, onlinePic.size());
+
+				Mat comp = new Mat();
+				Core.compare(onlineBinary, imRegBin, comp, Core.CMP_EQ);
+				int similiarPixels = Core.countNonZero(comp);
+
+				if (similiarPixels > max) {
+					max = similiarPixels;
+//					System.out.println("Igen");
+
+				}
+				Imgcodecs.imwrite("illesztettBinaris.png", imRegBin);
+				Imgcodecs.imwrite("illesztett.png", imReg);
+				imageOff = new Image("file:illesztett.png");
+				imageOn = new Image("file:onlineSnapshot.png");
+//				System.out.println("Size: " + (onlineBinary.rows() * onlineBinary.cols()) + " Best: " + max);
+
+				offlineIllesztettKep.setImage(imageOff);
+
+				onlineIllesztettKep.setImage(imageOn);
+				getStackpane().getChildren().clear();
+				getStackpane().getChildren().addAll(offlineIllesztettKep, onlineIllesztettKep);
+
+			} catch (Exception e) {
+				getStackpane().getChildren().clear();
+				getStackpane().getChildren().add(new Text("Nem sikerült az illesztés"));
+
+			}
+
+			// }
+		}
+
+	}
+
+	private static Mat binarisKonverzioOnline(Mat onlinePic) {
 		// Konvertálás szürkeárnyalatossá
 		Mat onlineGray = new Mat();
-		Mat offlineGray = new Mat();
 		Imgproc.cvtColor(onlinePic, onlineGray, Imgproc.COLOR_RGB2GRAY);
-		Imgproc.cvtColor(offlinePic, offlineGray, Imgproc.COLOR_RGB2GRAY);
 
 		// Konvertálás binárissá
 		Mat onlineBinary = new Mat();
-		Mat offlineBinary = new Mat();
 		Imgproc.threshold(onlineGray, onlineBinary, 0, 255, Imgproc.THRESH_BINARY);
-		Imgproc.threshold(offlineGray, offlineBinary, 240, 255, Imgproc.THRESH_BINARY_INV);
-		System.out.println("Converted to Binary");
 		Imgcodecs.imwrite("onlineBinary.png", onlineBinary);
-		Imgcodecs.imwrite("offlineBinary.png", offlineBinary);
 
+		return onlineBinary;
+
+	}
+
+	public static Mat binarisKonverzioOffline(Mat offlinePic) {
+		Mat offlineGray = new Mat();
+		Imgproc.cvtColor(offlinePic, offlineGray, Imgproc.COLOR_RGB2GRAY);
+		Mat offlineBinary = new Mat();
+		Imgproc.threshold(offlineGray, offlineBinary, 247, 255, Imgproc.THRESH_BINARY_INV);
+		Imgcodecs.imwrite("offlineBinary.png", offlineBinary);
+		return offlineBinary;
+	}
+
+	public static Mat Morfologia(Mat offlineBinary) {
 		// Morfológiai mûveletek
 		Mat offlineBinaryMorph = new Mat();
 		Size size = new Size(3.0, 3.0);
-		Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, size);
+		Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, size);
 		Imgproc.morphologyEx(offlineBinary, offlineBinaryMorph, Imgproc.MORPH_OPEN, kernel);
-		Size size2 = new Size(3.0, 3.0);
-		Mat kernel2 = Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, size2);
-		Imgproc.morphologyEx(offlineBinaryMorph, offlineBinaryMorph, Imgproc.MORPH_CLOSE, kernel2);
+//		Size size2 = new Size(4.0, 4.0);
+//		Mat kernel2 = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, size2);
+//		Imgproc.morphologyEx(offlineBinaryMorph, offlineBinaryMorph, Imgproc.MORPH_CLOSE, kernel2);
+//		
+//		Mat kernel3 = Mat.ones(new Size(4.0, 4.0), Imgproc.MORPH_RECT);		
+//		Imgproc.erode(offlineBinary, offlineBinaryMorph, kernel3);
 		Imgcodecs.imwrite("offlineBinaryMorph.png", offlineBinaryMorph);
 
-		// Variables to store keypoints and descriptors
-		MatOfKeyPoint keyPointsOffline = new MatOfKeyPoint();
-		MatOfKeyPoint keyPointsOnline = new MatOfKeyPoint();
-		Mat descriptorsOnline = new Mat();
-		Mat descriptorsOffline = new Mat();
+		return offlineBinaryMorph;
+	}
 
-		// Detect ORB features and compute descriptors.
-		ORB orbDetector = ORB.create((int) features);
+	public StackPane getStackpane() {
+		return stackpane;
+	}
 
-		orbDetector.detectAndCompute(onlineBinary, new Mat(), keyPointsOnline, descriptorsOnline);
-		orbDetector.detectAndCompute(offlineBinaryMorph, new Mat(), keyPointsOffline, descriptorsOffline);
+	public void setStackpane(StackPane stackpane) {
+		this.stackpane = stackpane;
+	}
 
-		// Match features.
-		try {
-			MatOfDMatch matches = new MatOfDMatch();
-			DescriptorMatcher matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING);
+	public ImageView getOfflineIllesztettKep() {
+		return offlineIllesztettKep;
+	}
 
-			matcher.match(descriptorsOffline, descriptorsOnline, matches, new Mat());
-			System.out.println("Matches: " + matches.rows());
+	public void setOfflineIllesztettKep(ImageView bottom) {
+		this.offlineIllesztettKep = bottom;
+	}
 
-			// Sort matches by score
-			DMatch[] matchesArray = matches.toArray();
-			boolean sorted = false;
-			DMatch temp;
-			while (!sorted) {
-				sorted = true;
-				for (int i = 0; i < matchesArray.length - 1; i++) {
-					if (matchesArray[i].distance > matchesArray[i + 1].distance) {
-						temp = matchesArray[i];
-						matchesArray[i] = matchesArray[i + 1];
-						matchesArray[i + 1] = temp;
-						sorted = false;
-					}
-				}
-			}
-			// Remove not so good matces
+	public ImageView getOnlineIllesztettKep() {
+		return onlineIllesztettKep;
+	}
 
-			int top = (int) (matchesArray.length * (topMatch / 100));
-			DMatch[] topMatchesArray = new DMatch[top];
-			for (int i = 0; i < top; i++) {
-				topMatchesArray[i] = matchesArray[i];
-				System.out.println("Index: " + i + ", " + topMatchesArray[i]);
-			}
-			MatOfDMatch topMatches = new MatOfDMatch();
-			topMatches.fromArray(topMatchesArray);
-
-			// Draw top matches
-			Mat imMatches = new Mat();
-			Features2d.drawMatches(offlineBinaryMorph, keyPointsOffline, onlineBinary, keyPointsOnline, topMatches,
-					imMatches);
-			Imgcodecs.imwrite("matches.png", imMatches);
-
-			// Extract location of good matches
-			MatOfPoint2f points1 = new MatOfPoint2f();
-			MatOfPoint2f points2 = new MatOfPoint2f();
-			List<Point> obj = new ArrayList<>();
-			List<Point> scene = new ArrayList<>();
-			KeyPoint[] keyPointsOfflineArray = keyPointsOffline.toArray();
-			KeyPoint[] keyPointsOnlineArray = keyPointsOnline.toArray();
-			for (int i = 0; i < topMatches.height(); i++) {
-				obj.add(keyPointsOfflineArray[topMatchesArray[i].queryIdx].pt);
-				scene.add(keyPointsOnlineArray[topMatchesArray[i].trainIdx].pt);
-			}
-			points1.fromList(obj);
-			points2.fromList(scene);
-			
-			
-			// Find homography
-			Mat h = Calib3d.findHomography(points1, points2, Calib3d.RANSAC);
-			System.out.println("Estimated homography : \n" + h);
-			
-			// Use homography to warp image
-			Mat imReg = new Mat();
-			Imgproc.warpPerspective(offlinePic, imReg, h, onlinePic.size());
-			Imgcodecs.imwrite("illesztett.png", imReg);
-
-			Image imageOff = new Image("file:illesztett.png");
-			Image imageOn = new Image("file:onlineSnapshot.png");
-			bottom.setImage(imageOff);
-			topp.setImage(imageOn);
-			stackpane.getChildren().addAll(bottom, topp);
-		} catch (Exception e) {
-			stackpane.getChildren().add(new Text("Nem sikerült az illesztés"));
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+	public void setOnlineIllesztettKep(ImageView topp) {
+		this.onlineIllesztettKep = topp;
 	}
 
 }

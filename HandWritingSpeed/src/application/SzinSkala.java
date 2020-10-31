@@ -3,6 +3,10 @@ package application;
 import javafx.scene.paint.Color;
 
 public class SzinSkala {
+	
+	public SzinSkala(float angleFrom, float angleTo, int n) {
+		
+	}
 	public static Color[] intervalColors(float angleFrom, float angleTo, int n) {
 		float angleRange = angleTo - angleFrom;
 		float stepAngle = angleRange / n;

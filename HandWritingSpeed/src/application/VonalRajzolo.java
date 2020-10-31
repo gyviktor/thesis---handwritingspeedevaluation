@@ -7,16 +7,16 @@ import javafx.scene.shape.StrokeLineCap;
 public final class VonalRajzolo {
 	
 	public static Line vonalRajz(Vonal vonal) {
+
 		Line line = new Line();
 		
 		if (vonal.isTollFent() == true) {
 			line.setStroke(Color.LIGHTGRAY);
 			line.setStrokeWidth(15);
 		} else {
-			Color[] colors = SzinSkala.intervalColors(0, 120, 60); // green to red
-			
+			Color[] colors = SzinSkala.intervalColors(0, 120, 60); // green to red			
 
-			int tempo = (int) Math.floor(vonal.getSzakaszSebesseg() * 5);
+			int tempo = (int) Math.floor(vonal.rajzSebesseg * 5);
 			if (tempo >= colors.length) {
 				tempo = colors.length - 1;
 			}
@@ -48,7 +48,7 @@ public final class VonalRajzolo {
 				tempo = colors.length - 1;
 			}
 			line.setStroke(colors[tempo]);
-			line.setStrokeWidth(70);
+			line.setStrokeWidth(64);
 		}
 
 		line.setStrokeLineCap(StrokeLineCap.ROUND);
